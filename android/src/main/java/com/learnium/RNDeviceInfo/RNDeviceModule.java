@@ -308,4 +308,17 @@ public class RNDeviceModule extends ReactContextBaseJavaModule {
 
     return constants;
   }
+
+  @ReactMethod
+  public void getUserAgent(Promise p) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        p.resolve(WebSettings.getDefaultUserAgent(getReactApplicationContext()));
+      } else {
+        p.resolve(System.getProperty("http.agent"));
+      }
+    } catch (RuntimeException e) {
+      p.resolve(System.getProperty("http.agent"));
+    }
+  }
 }

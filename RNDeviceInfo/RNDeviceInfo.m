@@ -8,6 +8,7 @@
 
 #import "RNDeviceInfo.h"
 #import "DeviceUID.h"
+#import <WebKit/WebKit.h>
 #if !(TARGET_OS_TV)
 #import <LocalAuthentication/LocalAuthentication.h>
 #endif
@@ -21,6 +22,9 @@
 #endif
 
 @implementation RNDeviceInfo
+{
+    WKWebView *webView;
+}
 
 @synthesize isEmulator;
 
@@ -169,12 +173,7 @@ RCT_EXPORT_MODULE(RNDeviceInfo)
 
 - (NSString*) userAgent
 {
-#if TARGET_OS_TV
     return @"not available";
-#else
-    UIWebView* webView = [[UIWebView alloc] initWithFrame:CGRectZero];
-    return [webView stringByEvaluatingJavaScriptFromString:@"navigator.userAgent"];
-#endif
 }
 
 - (NSString*) deviceLocale
@@ -233,7 +232,7 @@ RCT_EXPORT_MODULE(RNDeviceInfo)
 }
 
 - (NSDictionary *) getStorageDictionary {
-	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);  
+	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     return [[NSFileManager defaultManager] attributesOfFileSystemForPath:[paths lastObject] error: nil];
 }
 
@@ -251,7 +250,7 @@ RCT_EXPORT_MODULE(RNDeviceInfo)
 - (uint64_t) freeDiskStorage {
     uint64_t freeSpace = 0;
     NSDictionary *storage = [self getStorageDictionary];
-    
+
     if (storage) {
         NSNumber *freeFileSystemSizeInBytes = [storage objectForKey: NSFileSystemFreeSize];
         freeSpace = [freeFileSystemSizeInBytes unsignedLongLongValue];
@@ -308,6 +307,31 @@ RCT_EXPORT_METHOD(getBatteryLevel:(RCTPromiseResolveBlock)resolve rejecter:(RCTP
 {
     float batteryLevel = [UIDevice currentDevice].batteryLevel;
     resolve(@(batteryLevel));
+}
+
+RCT_EXPORT_METHOD(getUserAgent:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+#if TARGET_OS_TV
+    reject(@"not available");
+#else
+    __weak RNDeviceInfo *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong RNDeviceInfo *strongSelf = weakSelf;
+        if (strongSelf) {
+            // Save WKWebView (it might deallocate before we ask for user Agent)
+            strongSelf->webView = [[WKWebView alloc] init];
+
+            [strongSelf->webView evaluateJavaScript:@"window.navigator.userAgent;" completionHandler:^(id _Nullable result, NSError * _Nullable error) {
+                if (error) {
+                    reject(@"getUserAgentError", error.localizedDescription, error);
+                    return;
+                }
+                resolve([NSString stringWithFormat:@"%@", result]);
+                // Destroy the WKWebView after task is complete
+                strongSelf->webView = nil;
+            }];
+        }
+    });
+#endif
 }
 
 @end

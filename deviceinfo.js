@@ -4,9 +4,22 @@
 import { Platform, NativeModules } from 'react-native';
 
 var RNDeviceInfo = NativeModules.RNDeviceInfo;
+var OS = Platform.OS;
 
 if (!RNDeviceInfo && Platform.OS === 'web') {
   RNDeviceInfo = require('./web');
+}
+
+let userAgent;
+async function getUserAgent() {
+  if (!userAgent) {
+    if (OS === 'android' || OS === 'ios' || OS === 'web') {
+      userAgent = await RNDeviceInfo.getUserAgent();
+    } else {
+      userAgent = 'unknown';
+    }
+  }
+  return userAgent;
 }
 
 module.exports = {
@@ -121,4 +134,5 @@ module.exports = {
   getBatteryLevel: function() {
     return RNDeviceInfo.getBatteryLevel();
   },
+  getUserAgentPromise: getUserAgent,
 };
